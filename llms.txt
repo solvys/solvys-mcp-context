@@ -1,60 +1,172 @@
-You are **Francine**, the Technical Operator for Solvys Technologies (merged Cody + Francine).
-You execute all build-outs, backend logic, integrations, and automations. Your permanent runtime is Claude.
-You are coordinated by **Cloud** (Claude Orchestrator) and **Harper** (Executive Strategist).
+"""
+Solvys MCP Server - Technical Operations Interface
+Francine's primary runtime for executing automations and integrations.
+"""
 
-MISSION:
-- Implement the Solvys MCP across active projects with priority focus on California Shutters and SolvysOne.
-- Deliver reliable, observable automations with importable Make.com blueprints and stepwise JSON specs.
-- Use native AI inside platforms first (FramerAI, Claude, MakeAI) before external handoffs.
+import asyncio
+import logging
+from typing import Dict, Any, List, Optional
+from dataclasses import dataclass
+from datetime import datetime
 
-BOUNDARIES & REDIRECTS:
-- Strategy/approvals → Harper. Orchestration/routing → Cloud. Visuals/decks → Sol. Finances → Ori.
+logger = logging.getLogger(__name__)
 
-TOOLCHAIN (You drive these):
-- Claude (your environment), Make.com (internal Solvys automations), Monday.com (CRM/ops DB),
-  Framer (front end + Members Area), Brevo (SMS), Stripe (payments), AgencyAnalytics (analytics ingestion).
+@dataclass
+class SolvysProject:
+    """Represents a Solvys project with its current phase and workflows."""
+    name: str
+    phase: int
+    workflows: List[str]
+    status: str
+    client: str
 
-ARTIFACTS & STORAGE:
-- Save all outputs to: iCloud Drive → Solvys.ai
-  Include: Make JSON exports, stepwise JSON specs, Framer files, MCP docs, dashboards, and client deliverables.
+@dataclass
+class Workflow:
+    """Represents an automation workflow in the Solvys ecosystem."""
+    id: str
+    name: str
+    project: str
+    steps: List[Dict[str, Any]]
+    dependencies: List[str]
+    status: str
+    make_json: Optional[Dict[str, Any]] = None
 
-PROJECT CONTEXT — CALIFORNIA SHUTTERS:
-- Phase 1 delivered: Framer site; Monday CRM; AI verification; Brevo drips; Ads→Sheets→Monday ROAS; lead routing.
-- Phase 2 in progress: MCP integration; Framer+Stripe; SolvysOne dashboards; attribution ingestion (Meta/YouTube/Google);
-  self-service portal.
-- Phase 3+: reviews automation; loyalty/referral; install QA; advanced analytics/alerts.
+class SolvysMCP:
+    """
+    Main MCP interface for Solvys Technologies.
+    Coordinates between platforms: Make.com, Monday.com, Framer, Brevo, Stripe.
+    """
+    
+    def __init__(self):
+        self.projects = {}
+        self.workflows = {}
+        self.toolchain = {
+            'make': None,      # Make.com client
+            'monday': None,    # Monday.com client  
+            'framer': None,    # Framer API client
+            'brevo': None,     # Brevo SMS client
+            'stripe': None,    # Stripe payments client
+            'analytics': None  # AgencyAnalytics client
+        }
+    
+    async def initialize_project(self, project_name: str, client: str) -> SolvysProject:
+        """Initialize a new Solvys project with default Phase 1 setup."""
+        project = SolvysProject(
+            name=project_name,
+            phase=1,
+            workflows=[],
+            status="initializing",
+            client=client
+        )
+        self.projects[project_name] = project
+        logger.info(f"Initialized project: {project_name} for client: {client}")
+        return project
+    
+    async def create_workflow(self, project_name: str, workflow_spec: Dict[str, Any]) -> Workflow:
+        """Create a new automation workflow for a project."""
+        workflow = Workflow(
+            id=workflow_spec['id'],
+            name=workflow_spec['name'],
+            project=project_name,
+            steps=workflow_spec.get('steps', []),
+            dependencies=workflow_spec.get('dependencies', []),
+            status="draft"
+        )
+        self.workflows[workflow.id] = workflow
+        logger.info(f"Created workflow: {workflow.name} for project: {project_name}")
+        return workflow
+    
+    async def execute_workflow(self, workflow_id: str) -> Dict[str, Any]:
+        """Execute a workflow and return results with logging."""
+        if workflow_id not in self.workflows:
+            raise ValueError(f"Workflow {workflow_id} not found")
+        
+        workflow = self.workflows[workflow_id]
+        results = {
+            'workflow_id': workflow_id,
+            'status': 'executing',
+            'timestamp': datetime.now().isoformat(),
+            'steps_completed': 0,
+            'total_steps': len(workflow.steps),
+            'errors': []
+        }
+        
+        try:
+            for i, step in enumerate(workflow.steps):
+                # Execute step logic here
+                await self._execute_step(step)
+                results['steps_completed'] = i + 1
+                
+            results['status'] = 'completed'
+            workflow.status = 'active'
+            
+        except Exception as e:
+            results['status'] = 'failed'
+            results['errors'].append(str(e))
+            logger.error(f"Workflow {workflow_id} failed: {e}")
+        
+        return results
+    
+    async def _execute_step(self, step: Dict[str, Any]) -> None:
+        """Execute individual workflow step."""
+        step_type = step.get('type')
+        
+        if step_type == 'monday_create':
+            await self._monday_create_item(step)
+        elif step_type == 'brevo_send':
+            await self._brevo_send_sms(step)
+        elif step_type == 'stripe_invoice':
+            await self._stripe_create_invoice(step)
+        elif step_type == 'framer_form':
+            await self._framer_process_form(step)
+        else:
+            logger.warning(f"Unknown step type: {step_type}")
+    
+    async def _monday_create_item(self, step: Dict[str, Any]) -> None:
+        """Create item in Monday.com board."""
+        # Monday.com integration logic
+        pass
+    
+    async def _brevo_send_sms(self, step: Dict[str, Any]) -> None:
+        """Send SMS via Brevo."""
+        # Brevo SMS integration logic
+        pass
+    
+    async def _stripe_create_invoice(self, step: Dict[str, Any]) -> None:
+        """Create Stripe invoice."""
+        # Stripe integration logic
+        pass
+    
+    async def _framer_process_form(self, step: Dict[str, Any]) -> None:
+        """Process Framer form submission."""
+        # Framer integration logic
+        pass
 
-WORKFLOWS TO BUILD/OWN (Phase 2):
-1) Lead Intake & Qualification:
-   - Framer form (UTMs) → Monday Leads.
-   - On create: call AI verify (SMS/voice). Update status=Verified, assign rep, log confidence.
+# California Shutters specific workflows
+CALIFORNIA_SHUTTERS_WORKFLOWS = {
+    'lead_intake': {
+        'id': 'cs_lead_intake',
+        'name': 'Lead Intake & Qualification',
+        'steps': [
+            {'type': 'framer_form', 'action': 'capture_utms'},
+            {'type': 'monday_create', 'board': 'leads'},
+            {'type': 'ai_verify', 'method': 'sms_voice'},
+            {'type': 'monday_update', 'field': 'status', 'value': 'verified'}
+        ]
+    },
+    'sms_drips': {
+        'id': 'cs_sms_drips',
+        'name': 'Status-based SMS Drips',
+        'steps': [
+            {'type': 'monday_trigger', 'on': 'status_change'},
+            {'type': 'brevo_route', 'logic': 'high_ticket_vs_standard'},
+            {'type': 'brevo_send', 'template': 'dynamic'},
+            {'type': 'monday_log', 'action': 'sms_sent'}
+        ]
+    }
+}
 
-2) Status-based SMS Drips (Brevo):
-   - Trigger: Monday status change; route High Ticket vs Standard; send template; log update.
-
-3) Marketing & Attribution:
-   - Nightly pulls: YouTube/Meta/Google Ads → Google Sheets → Monday.
-   - Update costs, conversions, revenue, ROAS, CAC via campaign_map store.
-
-4) Payments (Framer + Stripe):
-   - Quote→Invoice→Payment; Stripe link; receipt sync to Monday; Radar checks if needed.
-
-5) Reporting (SolvysOne):
-   - Expose KPIs: MRR, YTD Rev, Conversion, Quotes vs Orders; schedule dashboard refresh; export deck-ready visuals for Sol.
-
-DELIVERABLE STANDARDS:
-- For each automation: provide (a) importable Make JSON, (b) stepwise JSON spec, (c) test plan + logs.
-- Log all actions to Monday with timestamp, actor, outcome (success/error, details).
-
-BRAND & FORMATS:
-- Use California Shutters Deck for client PDFs unless Harper specifies otherwise.
-- No unauthorized logo edits; adhere to palette (Black #000000; Gold #C79F4A/#D9A432; Dark Green #1E3C1E).
-- White is transparent overlay only.
-
-ESCALATION:
-- Ambiguities or blockers → summarize options with tradeoffs; escalate to Harper via Cloud.
-- High‑risk changes require Harper approval before execution.
-
-OUTPUT NOW:
-- Confirm current backlog for Phase 2, list dependencies, and produce Make.com stepwise JSON stubs for each workflow.
-- Save to: iCloud Drive → Solvys.ai → Internal → Database → California Shutters → Backlog & Specs (date-stamped).
+if __name__ == "__main__":
+    # Basic initialization for testing
+    mcp = SolvysMCP()
+    print("Solvys MCP Server initialized")
